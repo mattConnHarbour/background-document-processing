@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { SuperDoc } from 'superdoc';
+import { BlankDOCX, SuperDoc } from 'superdoc';
 import 'superdoc/style.css';
 
 type JobStatus = 'queued' | 'opening' | 'waiting' | 'ready' | 'failed';
@@ -18,7 +18,6 @@ const apiUrl = import.meta.env.VITE_API_URL ?? '';
 
 export function App() {
   const [job, setJob] = useState<Job>();
-  const [sourceFile, setSourceFile] = useState<Blob>();
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string>();
 
@@ -34,38 +33,55 @@ export function App() {
     return () => window.clearInterval(timer);
   }, [job?.id, job?.status]);
 
-  // Once processing is complete, mount SuperDoc and join the worker's room.
+  // Once processing is complete, use a blank DOCX to bootstrap SuperDoc and hydrate from the worker's room.
   useEffect(() => {
-    if (job?.status !== 'ready' || !sourceFile) return;
+    if (job?.status !== 'ready') return;
 
-    const editor = new SuperDoc({
-      selector: '#editor',
-      documents: [
-        {
-          id: job.documentId,
-          type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-          data: sourceFile,
-          v2Collaboration: {
-            providerType: 'hocuspocus',
-            documentId: job.documentId,
-            serverUrl: job.collaborationUrl,
-            roomMode: 'join',
-          },
-        },
-      ],
-      user: { name: 'Browser user', email: 'browser@example.com' },
-      onException: ({ error: editorError }) => setError(String(editorError)),
-    });
+    const readyJob = job;
+    let editor: SuperDoc | undefined;
+    let cancelled = false;
 
-    return () => editor.destroy();
-  }, [job?.documentId, job?.status, sourceFile]);
+    async function connectToRoom() {
+      try {
+        const response = await fetch(BlankDOCX);
+        const blankDocument = await response.blob();
+        if (cancelled) return;
+        editor = new SuperDoc({
+          selector: '#editor',
+          documents: [
+            {
+              id: readyJob.documentId,
+              type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+              data: blankDocument,
+              v2Collaboration: {
+                providerType: 'hocuspocus',
+                documentId: readyJob.documentId,
+                serverUrl: readyJob.collaborationUrl,
+                roomMode: 'join',
+              },
+            },
+          ],
+          user: { name: 'Browser user', email: 'browser@example.com' },
+          onException: ({ error: editorError }) => setError(String(editorError)),
+        });
+      } catch (cause) {
+        if (!cancelled) setError(cause instanceof Error ? cause.message : String(cause));
+      }
+    }
 
-  // Upload the DOCX and keep the browser copy available for the editor.
+    void connectToRoom();
+
+    return () => {
+      cancelled = true;
+      editor?.destroy();
+    };
+  }, [job?.documentId, job?.status]);
+
+  // Upload the DOCX; after this request, the browser no longer retains the file.
   async function upload(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
     const formData = new FormData(form);
-    const document = formData.get('document');
     setUploading(true);
     setError(undefined);
     setJob(undefined);
@@ -74,8 +90,6 @@ export function App() {
       const response = await fetch(`${apiUrl}/api/documents`, { method: 'POST', body: formData });
       const body = (await response.json()) as Job | { error: string };
       if (!response.ok) throw new Error('error' in body ? body.error : 'Document failed to load.');
-      if (!(document instanceof File)) throw new Error('Select a DOCX file.');
-      setSourceFile(document);
       setJob(body as Job);
       form.reset();
     } catch (cause) {
