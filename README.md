@@ -11,6 +11,8 @@ The flow is:
 
 Jobs and open SDK document handles live in the worker's memory. Restarting the worker clears every job. Uploaded files are stored under `.data/`, which is ignored by Git.
 
+Production configuration uses `WORKER_URL` for private API-to-worker traffic, `FRONTEND_ORIGIN` for API CORS, `PUBLIC_COLLABORATION_URL` for browser WebSocket traffic, and `VITE_API_URL` when building the frontend.
+
 ## Run
 
 ```bash

@@ -5,11 +5,14 @@
   "packageManager": "pnpm@10.25.0",
   "scripts": {
     "dev": "concurrently -k -n client,api,worker \"vite --host 127.0.0.1 --port 5186 --strictPort\" \"tsx watch server/api.ts\" \"tsx watch server/worker.ts\"",
+    "start:api": "tsx server/api.ts",
+    "start:worker": "tsx server/worker.ts",
     "typecheck": "tsc --noEmit",
     "build": "vite build",
     "test": "node --import tsx --test tests/*.test.ts"
   },
   "dependencies": {
+    "@fastify/cors": "^11.1.0",
     "@fastify/multipart": "^9.4.0",
     "@hocuspocus/server": "^2.13.6",
     "@superdoc/sdk": "2.10.0",

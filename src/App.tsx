@@ -9,10 +9,12 @@ interface Job {
   fileName: string;
   status: JobStatus;
   documentId: string;
+  collaborationUrl: string;
   error?: string;
 }
 
 const terminalStatuses = new Set<JobStatus>(['ready', 'failed']);
+const apiUrl = import.meta.env.VITE_API_URL ?? '';
 
 export function App() {
   const [job, setJob] = useState<Job>();
@@ -25,7 +27,7 @@ export function App() {
     if (!job || terminalStatuses.has(job.status)) return;
 
     const timer = window.setInterval(async () => {
-      const response = await fetch(`/api/documents/${job.id}`);
+      const response = await fetch(`${apiUrl}/api/documents/${job.id}`);
       if (response.ok) setJob((await response.json()) as Job);
     }, 500);
 
@@ -46,7 +48,7 @@ export function App() {
           v2Collaboration: {
             providerType: 'hocuspocus',
             documentId: job.documentId,
-            serverUrl: 'ws://127.0.0.1:4302',
+            serverUrl: job.collaborationUrl,
             roomMode: 'join',
           },
         },
@@ -69,7 +71,7 @@ export function App() {
     setJob(undefined);
 
     try {
-      const response = await fetch('/api/documents', { method: 'POST', body: formData });
+      const response = await fetch(`${apiUrl}/api/documents`, { method: 'POST', body: formData });
       const body = (await response.json()) as Job | { error: string };
       if (!response.ok) throw new Error('error' in body ? body.error : 'Document failed to load.');
       if (!(document instanceof File)) throw new Error('Select a DOCX file.');

@@ -14,6 +14,7 @@ export class Job {
     readonly id: string,
     readonly fileName: string,
     filePath: string,
+    readonly collaborationUrl = process.env.PUBLIC_COLLABORATION_URL ?? 'ws://127.0.0.1:4302',
   ) {
     this.documentId = id;
     this.#filePath = filePath;
@@ -29,7 +30,7 @@ export class Job {
         doc: this.#filePath,
         collaboration: {
           providerType: 'hocuspocus',
-          url: 'ws://127.0.0.1:4302',
+          url: process.env.INTERNAL_COLLABORATION_URL ?? 'ws://127.0.0.1:4302',
           documentId: this.documentId,
           roomMode: 'create',
         },
